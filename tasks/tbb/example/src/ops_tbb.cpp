@@ -1,61 +1,119 @@
 #include "tbb/example/include/ops_tbb.hpp"
 
-#include <tbb/tbb.h>
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
 
+#include <algorithm>
 #include <cmath>
-#include <core/util/include/util.hpp>
 #include <cstddef>
+#include <thread>
 #include <vector>
 
-#include "oneapi/tbb/task_arena.h"
-#include "oneapi/tbb/task_group.h"
+std::vector<double> chernova_n_cannon_matrix_mul_tbb::CannonMatrixMultiplicationTBB(const std::vector<double>& a,
+                                                                                    const std::vector<double>& b,
+                                                                                    int n) {
+  if (n <= 0) return {};
 
-namespace {
-void MatMul(const std::vector<int> &in_vec, int rc_size, std::vector<int> &out_vec) {
-  for (int i = 0; i < rc_size; ++i) {
-    for (int j = 0; j < rc_size; ++j) {
-      out_vec[(i * rc_size) + j] = 0;
-      for (int k = 0; k < rc_size; ++k) {
-        out_vec[(i * rc_size) + j] += in_vec[(i * rc_size) + k] * in_vec[(k * rc_size) + j];
+  int block_size = 32;
+  if (n < 32) block_size = 8;
+  if (n < 8) block_size = 2;
+
+  std::vector<double> matrixC(n * n, 0.0);
+
+  int num_blocks = (n + block_size - 1) / block_size;
+
+  tbb::parallel_for(0, num_blocks, [&](int block_i) {
+    for (int block_j = 0; block_j < num_blocks; block_j++) {
+      for (int block_k = 0; block_k < num_blocks; block_k++) {
+        int i_start = block_i * block_size;
+        int j_start = block_j * block_size;
+        int k_start = block_k * block_size;
+        int i_end = std::min(i_start + block_size, n);
+        int j_end = std::min(j_start + block_size, n);
+        int k_end = std::min(k_start + block_size, n);
+
+        for (int i = i_start; i < i_end; i++) {
+          for (int k = k_start; k < k_end; k++) {
+            double a_val = a[i * n + k];
+            for (int j = j_start; j < j_end; j++) {
+              matrixC[i * n + j] += a_val * b[k * n + j];
+            }
+          }
+        }
       }
     }
-  }
-}
-}  // namespace
-
-bool nesterov_a_test_task_tbb::TestTaskTBB::PreProcessingImpl() {
-  // Init value for input and output
-  unsigned int input_size = task_data->inputs_count[0];
-  auto *in_ptr = reinterpret_cast<int *>(task_data->inputs[0]);
-  input_ = std::vector<int>(in_ptr, in_ptr + input_size);
-
-  unsigned int output_size = task_data->outputs_count[0];
-  output_ = std::vector<int>(output_size, 0);
-
-  rc_size_ = static_cast<int>(std::sqrt(input_size));
-  return true;
-}
-
-bool nesterov_a_test_task_tbb::TestTaskTBB::ValidationImpl() {
-  // Check equality of counts elements
-  return task_data->inputs_count[0] == task_data->outputs_count[0];
-}
-
-bool nesterov_a_test_task_tbb::TestTaskTBB::RunImpl() {
-  oneapi::tbb::task_arena arena(1);
-  arena.execute([&] {
-    tbb::task_group tg;
-    for (int thr = 0; thr < ppc::util::GetPPCNumThreads(); ++thr) {
-      tg.run([&] { MatMul(input_, rc_size_, output_); });
-    }
-    tg.wait();
   });
+
+  return matrixC;
+}
+
+std::vector<double> chernova_n_cannon_matrix_mul_tbb::MultiplyMatrixTBB(const std::vector<double>& a,
+                                                                        const std::vector<double>& b, int n) {
+  if (n == 0) {
+    return {};
+  }
+
+  std::vector<double> matrixC(n * n, 0.0);
+
+  tbb::parallel_for(0, n, [&](int i) {
+    for (int j = 0; j < n; ++j) {
+      double sum = 0.0;
+      for (int k = 0; k < n; ++k) {
+        sum += a[(i * n) + k] * b[(k * n) + j];
+      }
+      matrixC[(i * n) + j] = sum;
+    }
+  });
+
+  return matrixC;
+}
+
+bool chernova_n_cannon_matrix_mul_tbb::TestTaskTBB::PreProcessingImpl() {
+  n_ = *reinterpret_cast<int*>(task_data->inputs[2]);
+
+  size_t matrix_size = n_ * n_;
+
+  if (matrix_size == 0) {
+    matrixA.clear();
+    matrixB.clear();
+    return true;
+  }
+
+  matrixA.resize(matrix_size);
+  matrixB.resize(matrix_size);
+
+  auto* tmp_ptr_a = reinterpret_cast<double*>(task_data->inputs[0]);
+  auto* tmp_ptr_b = reinterpret_cast<double*>(task_data->inputs[1]);
+
+  std::copy(tmp_ptr_a, tmp_ptr_a + matrix_size, matrixA.begin());
+  std::copy(tmp_ptr_b, tmp_ptr_b + matrix_size, matrixB.begin());
+
   return true;
 }
 
-bool nesterov_a_test_task_tbb::TestTaskTBB::PostProcessingImpl() {
-  for (size_t i = 0; i < output_.size(); i++) {
-    reinterpret_cast<int *>(task_data->outputs[0])[i] = output_[i];
+bool chernova_n_cannon_matrix_mul_tbb::TestTaskTBB::ValidationImpl() {
+  if (task_data->inputs.size() < 3 || task_data->outputs.size() < 1) {
+    return false;
   }
+
+  int n = *reinterpret_cast<int*>(task_data->inputs[2]);
+
+  if (n <= 0) {
+    return false;
+  }
+
+  size_t expected_size = n * n;
+
+  return task_data->inputs_count[0] == expected_size && task_data->inputs_count[1] == expected_size &&
+         task_data->outputs_count[0] == expected_size;
+}
+
+bool chernova_n_cannon_matrix_mul_tbb::TestTaskTBB::RunImpl() {
+  res = CannonMatrixMultiplicationTBB(matrixA, matrixB, n_);
+  return true;
+}
+
+bool chernova_n_cannon_matrix_mul_tbb::TestTaskTBB::PostProcessingImpl() {
+  std::copy(res.begin(), res.end(), reinterpret_cast<double*>(task_data->outputs[0]));
   return true;
 }

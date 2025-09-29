@@ -5,7 +5,7 @@
 
 #include "core/task/include/task.hpp"
 
-namespace nesterov_a_test_task_omp {
+namespace chernova_n_cannon_matrix_mul_omp {
 
 class TestTaskOpenMP : public ppc::core::Task {
  public:
@@ -16,8 +16,13 @@ class TestTaskOpenMP : public ppc::core::Task {
   bool PostProcessingImpl() override;
 
  private:
-  std::vector<int> input_, output_;
-  int rc_size_{};
+  std::vector<double> matrixA;
+  std::vector<double> matrixB;
+  std::vector<double> res;
+  int n_ = 0;
 };
 
-}  // namespace nesterov_a_test_task_omp
+std::vector<double> MultiplyMatrixOMP(const std::vector<double>& a, const std::vector<double>& b, int n);
+std::vector<double> CannonMatrixMultiplicationOMP(const std::vector<double>& a, const std::vector<double>& b, int n);
+
+}  // namespace chernova_n_cannon_matrix_mul_omp

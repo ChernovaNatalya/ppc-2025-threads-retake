@@ -5,7 +5,7 @@
 
 #include "core/task/include/task.hpp"
 
-namespace nesterov_a_test_task_tbb {
+namespace chernova_n_cannon_matrix_mul_tbb {
 
 class TestTaskTBB : public ppc::core::Task {
  public:
@@ -16,8 +16,13 @@ class TestTaskTBB : public ppc::core::Task {
   bool PostProcessingImpl() override;
 
  private:
-  std::vector<int> input_, output_;
-  int rc_size_{};
+  std::vector<double> matrixA;
+  std::vector<double> matrixB;
+  std::vector<double> res;
+  int n_ = 0;
 };
 
-}  // namespace nesterov_a_test_task_tbb
+std::vector<double> MultiplyMatrixTBB(const std::vector<double>& a, const std::vector<double>& b, int n);
+std::vector<double> CannonMatrixMultiplicationTBB(const std::vector<double>& a, const std::vector<double>& b, int n);
+
+}  // namespace chernova_n_cannon_matrix_mul_tbb
