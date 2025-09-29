@@ -58,6 +58,7 @@ TEST(chernova_n_cannon_matrix_mul_tbb, test_pipeline_run) {
   task_data_tbb->outputs.emplace_back(reinterpret_cast<uint8_t *>(out.data()));
   task_data_tbb->outputs_count.emplace_back(out.size());
 
+  std::vector<double> res = chernova_n_cannon_matrix_mul_tbb::MultiplyMatrixTBB(in_mtrx_a, in_mtrx_b, n);
   auto test_task_tbb = std::make_shared<chernova_n_cannon_matrix_mul_tbb::TestTaskTBB>(task_data_tbb);
 
   auto perf_attr = std::make_shared<ppc::core::PerfAttr>();
@@ -94,7 +95,7 @@ TEST(chernova_n_cannon_matrix_mul_tbb, test_task_run) {
 
   task_data_tbb->outputs.emplace_back(reinterpret_cast<uint8_t *>(out.data()));
   task_data_tbb->outputs_count.emplace_back(out.size());
-
+  std::vector<double> res = chernova_n_cannon_matrix_mul_tbb::MultiplyMatrixTBB(in_mtrx_a, in_mtrx_b, n);
   auto test_task_tbb = std::make_shared<chernova_n_cannon_matrix_mul_tbb::TestTaskTBB>(task_data_tbb);
 
   auto perf_attr = std::make_shared<ppc::core::PerfAttr>();
